@@ -21,13 +21,19 @@
   "packageRules": [
     {
       "description": "Group docker GitHub Actions updates",
-      "matchManagers": ["github-actions"],
-      "matchPackagePrefixes": ["docker/"],
-      "groupName": "docker GitHub Actions"
+      "matchManagers": [
+        "github-actions"
+      ],
+      "groupName": "docker GitHub Actions",
+      "matchPackageNames": [
+        "docker/{/,}**"
+      ]
     },
     {
       "description": "Pin postgres Docker image to v16",
-      "matchPackageNames": ["postgres"],
+      "matchPackageNames": [
+        "postgres"
+      ],
       "allowedVersions": "<=16"
     },
     {
