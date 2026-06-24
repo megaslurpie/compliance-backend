@@ -114,15 +114,26 @@ describe Kafka::ReportParser do
   end
 
   context 'with valid reports' do
+    # Validation now happens in the consumer; stub the parser so this isolates
+    # the consumer's job: validate, then enqueue the *packed* report (no index).
+    let(:profile_id) { 'xccdf_org.ssgproject.content_profile_standard' }
+    let(:xml) { file_fixture('xccdf_report.xml').read }
+    let(:parser) do
+      instance_double(
+        XccdfReportParser,
+        validate!: nil,
+        test_result_file: double(test_result: double(profile_id: profile_id))
+      )
+    end
+
     before do
       allow(SafeDownloader).to receive(:download_reports)
         .with(nil, ssl_only: Settings.report_download_ssl_only)
-        .and_return([file_fixture('xccdf_report.xml').read])
+        .and_return([xml])
+      allow(XccdfReportParser).to receive(:new).and_return(parser)
     end
 
-    let(:profile_id) { 'xccdf_org.ssgproject.content_profile_standard' }
-
-    it 'enqueues report parsing job' do
+    it 'validates each report and enqueues it as a packed payload' do
       expect(Karafka.logger)
         .to receive(:audit_success)
         .with(
@@ -134,6 +145,9 @@ describe Kafka::ReportParser do
       service.parse_reports
 
       expect(enqueued_jobs.size).to eq(1)
+      # The job arg is the packed report, not an index; round-trip to compare
+      # (gzip output isn't byte-stable).
+      expect(ReportArtifact.unpack(enqueued_jobs.first[:args].first)).to eq(xml)
     end
   end
 end
